@@ -54,15 +54,23 @@ def process():
     bar = createProgressBar(count_to_process) 
     bar.start()
     start_from = 0
+    #hook for pre-processing
+    pre_process(start_time)
     info("POSTing %i records to Solr Server at %s..." % (count_to_process, getStatisticsURL()))
     while (start_from < count_to_process):
         records = []
         page_pos = 0
         ch_data_size = len(children_data)
-        while (page_pos < page_size and page_pos < count_to_process):
+        while (page_pos < page_size and start_from + page_pos < count_to_process):
             records.append(createRandomStatisticsRecord(children_data[page_pos % ch_data_size], include_bots))
             page_pos += 1
-        records_str =  "[" + ",".join(records) + "]"
+        if dry_run_mode:
+            records_str = ",".join(records)
+            if start_from + page_pos < count_to_process:
+                #if there is more records to get, then add ending ","...
+                records_str += ","
+        else:
+            records_str =  "[" + ",".join(records) + "]"
         postJsonData(records_str)
         
         if (start_from + page_size > count_to_process):
@@ -72,14 +80,8 @@ def process():
         bar.update(start_from)
     
     bar.finish()
-    if dry_run_mode:
-        info("DRY-RUN-MODE: File with fake statistics records was created at \"%s\"." % dry_run_tmpf_location)
-    if include_bots:
-        
-        info("BOTS: The %.2f%%  (%i/%i) of created records coincide with known bots/spiders User Agents..." % ((bots_count * 100)/count_to_process, bots_count, count_to_process))
-    info("Processing was finished successfully in %.2f seconds..." % (round(time.time() - start_time,2)))
-    info("Now you must run a Solr Optimize at statistics core in order to see the changes...")
-
+    #hook for post-processing
+    post_process(start_time)
 
 """
 Obtain children of Community specified at invocation from Solr 'search' core. Sub-communities and bitstreams cannot be obtained using this method
@@ -210,6 +212,27 @@ def getChildrenFromDB():
 
     #Return all children lists concatenated...
     return comm_children_list + coll_children_list + item_children_list + bs_original_children_list
+
+"""
+Things to do after main process...
+"""
+def pre_process(start_time):
+    global dry_run_mode
+    if dry_run_mode:
+        writeDryRunMode("[")
+
+"""
+Things to do after main process...
+"""
+def post_process(start_time):
+    global dry_run_mode,dry_run_tmpf_location,include_bots,count_to_process,bots_count
+    if dry_run_mode:
+        writeDryRunMode("]")
+        info("DRY-RUN-MODE: File with fake statistics records was created at \"%s\"." % dry_run_tmpf_location)
+    if include_bots:  
+        info("BOTS: The %.2f%%  (%i/%i) of created records coincide with known bots/spiders User Agents..." % ((bots_count * 100)/count_to_process, bots_count, count_to_process))
+    info("Processing was finished successfully in %.2f seconds..." % (round(time.time() - start_time,2)))
+    info("Now you must run a Solr Optimize at statistics core in order to see the changes...")
 
 def getSearchURL():
     global search_core_name, solr_server
