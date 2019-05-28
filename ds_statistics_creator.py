@@ -84,7 +84,7 @@ def process():
     post_process(start_time)
 
 """
-Obtain children of Community specified at invocation from Solr 'search' core. Sub-communities and bitstreams cannot be obtained using this method
+Obtain children of the Community specified at invocation from Solr 'search' core. Sub-communities and bitstreams cannot be obtained using this method.
 """
 def getChildrenFromSolr():
     global page_size,comm_handle,comm_uid
@@ -135,7 +135,7 @@ def getChildrenFromSolr():
     return children_list
 
 """
-Obtain children of Community specified at invocation from PostgreSQL database.
+Obtain children of the Community specified at invocation from PostgreSQL database. Through this method can obtain all children from a Community (items, bitstreams and collections).
 """
 def getChildrenFromDB():
     global comm_handle, comm_uid
@@ -214,7 +214,7 @@ def getChildrenFromDB():
     return comm_children_list + coll_children_list + item_children_list + bs_original_children_list
 
 """
-Things to do after main process...
+Things to do before main process...
 """
 def pre_process(start_time):
     global dry_run_mode
@@ -482,7 +482,11 @@ def createRandomStatisticsRecord(child_dict, use_bots=False):
 #################################################
 def main(argv):
     # here, if a dependency is not met, a DistributionNotFound or VersionConflict exception is thrown. 
-    pkg_resources.require(dependencies)
+    try:
+        pkg_resources.require(dependencies)
+    except DistributionNotFound as e:
+        info(str(e))
+        exitError("A required dependency is not installed! Run a 'pip install -r requirements.txt' to solve this.") 
     parseParams(argv) 
     confirmProcess()
     process()
