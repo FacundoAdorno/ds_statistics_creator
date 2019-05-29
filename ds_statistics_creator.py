@@ -2,10 +2,13 @@
 #DSpace Solr Statistics Records Creator. Recommended its use in software DSpace (https://duraspace.org/dspace/)
 #v0.1
 
-import contextlib,urllib,urllib2,json,sys,progressbar,getopt,random,socket,struct,time, getpass, pkg_resources, psycopg2
+import contextlib,urllib,urllib2,json,sys,progressbar,getopt,random,socket,struct, time, getpass, pkg_resources, psycopg2, os.path
 from pkg_resources import DistributionNotFound, VersionConflict
 from test_data import *
-import os.path
+from datetime import datetime
+from dateutil.rrule import rrule, MINUTELY
+from dateutil.relativedelta import *
+from dateutil.parser import *
 
 page_size = 2500
 solr_server = ""
@@ -24,8 +27,10 @@ PG_SOURCE = "POSTGRESQL"
 children_data_source = "SOLR" #defaults to solr
 include_bots = False
 bots_count = 0
+end_datetime = datetime.now()
+start_datetime= end_datetime + relativedelta(years=-5)
 #Packages required for this script
-dependencies = ['psycopg2>=2.8.2', 'progressbar>=2.5']
+dependencies = ['psycopg2>=2.8.2', 'progressbar>=2.5', 'python-dateutil>=2.8.0']
 #DB PostgreSQL connection data
 database_connection_data = {"host": "localhost", "port": "5432", "username": "", "password":"", "database": ""}
 connection = None
@@ -38,7 +43,7 @@ test statistics record. Then POST those records to Solr Server at the statistics
 Until now, only "view" statistics_type records are created.
 """
 def process():
-    global comm_handle, comm_uid, include_bots, count_to_process, bots_count
+    global comm_handle, comm_uid, include_bots, count_to_process, bots_count, start_datetime, end_datetime
     totalDocs = 0
     start_time = time.time()
     info("Getting childs of %s community..." % comm_handle)
@@ -52,17 +57,18 @@ def process():
 
     #Starting processing with pagination
     bar = createProgressBar(count_to_process) 
-    bar.start()
     start_from = 0
     #hook for pre-processing
     pre_process(start_time)
+    info("Generating records between dates '%s' and '%s'." % (start_datetime.strftime("%Y-%m-%d %H:%M:%S"), end_datetime.strftime("%Y-%m-%d %H:%M:%S")))
     info("POSTing %i records to Solr Server at %s..." % (count_to_process, getStatisticsURL()))
+    bar.start()
     while (start_from < count_to_process):
         records = []
         page_pos = 0
         ch_data_size = len(children_data)
         while (page_pos < page_size and start_from + page_pos < count_to_process):
-            records.append(createRandomStatisticsRecord(children_data[page_pos % ch_data_size], include_bots))
+            records.append(createRandomStatisticsRecord(children_data[page_pos % ch_data_size], start_datetime, end_datetime, include_bots))
             page_pos += 1
         if dry_run_mode:
             records_str = ",".join(records)
@@ -243,14 +249,20 @@ def getStatisticsURL():
     return solr_server + "/" + statistics_core_name
 
 def parseParams(argv):
-    global solr_server, comm_handle, statistics_core_name, search_core_name, count_to_process,dry_run_tmpf_location, dry_run_mode, dry_run_tmpf, count_to_process, database_info, children_data_source, include_bots
+    global solr_server, comm_handle, statistics_core_name, search_core_name, count_to_process,dry_run_tmpf_location, dry_run_mode, dry_run_tmpf, count_to_process, database_info, children_data_source, include_bots, start_datetime, end_datetime
     
-    help_text = """[HELP] script -s <solr-server-url>  -i <community-handle> [[-e <search-core>| -d] -t <statistics-core> -c <count> -b --dry-run] 
+    help_text = """[HELP] script -s <solr-server-url>  -i <community-handle> [[-e <search-core>| -d] -t <statistics-core> -c <count> --start <date> --end <date> -b --dry-run] 
       -s, --solr-server: specify the URL to SOLR Server. Don't include the core name, i.e. \'http:localhost:7080/solr\'.
       -i, --handle: the HANDLE of the community to generate test statistics records.
       -t, --statistics-core: specify the name of the statistics core. 'statistics' is the default.
       -c, --count: specify the total number of statistics records you want to create. Defaults to %i.
       -b, --include-bots: use this flag if you want to combine both "normal" and "of known bots/crawlers" User Agents in created records.
+      --start: specifiy the start datetime for the generation of the statistics records. This date must be lesser than NOW or the --end date parameter.
+                The string format of this parameter could be "year-month-date" or "year-month-date hour:minutes:seconds". I.e. "2019-01-21" or "2019-01-21 12:50:00".
+                By default, the start date corresponds to 5 years back.
+      --end: specifiy the end datetime for the generation of the statistics records. This date must be bigger than --start date parameter but must not be bigger than NOW.
+                The string format of this parameter could be "year-month-date" or "year-month-date hour:minutes:seconds". I.e. "2019-01-21" or "2019-01-21 12:50:00".
+                By default, the end date is NOW.
       --dry-run: run the command in a SAFE-MODE. No records will be POSTed to Solr server. The records created will be seen
                 in a temporary file at \"%s".
     
@@ -267,7 +279,7 @@ def parseParams(argv):
   >>INFO<<: This script index testing records for Solr Statistics core in DSpace. By default, it generates testing records within the date lapse of five years until now.
   """ % (count_to_process, dry_run_tmpf_location)
     try:
-        opts, args = getopt.getopt(argv,"hs:i:e:t:c:db",["solr-server=","uid=","search-core=","statistics-core=","count=","database-info","include-bots","dry-run"])
+        opts, args = getopt.getopt(argv,"hs:i:e:t:c:db",["solr-server=","uid=","search-core=","statistics-core=","count=","database-info","include-bots","dry-run","start=","end="])
     except getopt.GetoptError:
        print help_text
        sys.exit(2)
@@ -291,10 +303,15 @@ def parseParams(argv):
            except ValueError:
                exitError("Value '%s' is invalid. Please correct it..." % arg)
        elif opt in ("-d", "--database-info"):
+           #TODO move this parse at the end, only prompt for db data if all other parameters are ok...
            promptForDBInfo()
            children_data_source = PG_SOURCE
        elif opt in ("-b", "--include-bots"):
-           include_bots = True    
+           include_bots = True
+       elif opt in ("--start"):
+           start_datetime = parseDate(arg)
+       elif opt in ("--end"):
+           end_datetime = parseDate(arg)
        elif opt in ("--dry-run"):
            dry_run_mode = True
            dry_run_tmpf = createTempFile(dry_run_tmpf_location)
@@ -302,6 +319,13 @@ def parseParams(argv):
         print '[ERROR] Missing required parameters...'
         print help_text
         sys.exit(2)
+    #check if start date and end date are ok
+    dtnow = datetime.now()
+    if (start_datetime >= end_datetime):
+        exitError("Starting date must be smaller than ending date [starting='%s', ending='%s']." % (start_datetime, end_datetime))
+    elif (start_datetime > dtnow or end_datetime > dtnow):
+        exitError("Starting or ending date must not be bigger than now [starting='%s', ending='%s']." % (start_datetime, end_datetime))
+
 
 #<===== AUX =========>
 def exitError(message):
@@ -313,6 +337,12 @@ def info(message):
 
 def warn(message):
     print "[WARN] " + message
+
+def parseDate(date):
+    try:
+        return parse(date)
+    except ValueError as e:
+        exitError("Date format invalid! " + str(e))
 
 def createTempFile(location="./temp.file"):
     try:
@@ -413,7 +443,7 @@ def getJsonResponse(json_url,quiet=False):
         with contextlib.closing(urllib.urlopen(json_url)) as response:
             json_data = json.loads(response.read())
     except IOError:
-        exitError("Connection to URL=%s cannot be stablished. Exiting..." % jsonURL)
+        exitError("Connection to URL=%s cannot be stablished. Exiting..." % json_url)
     #If success, return Json representation object
     return json_data
 
@@ -448,14 +478,21 @@ def getRandomUserAgent(use_bots=False):
     else:
         return user_agent_random_list[random.randint(0,14)]
 
-def getRandomDateTime():
-    return "%i-%i-%iT0%i:0%i:00.000Z" % (random.randint(2014,2019), random.randint(01,12), random.randint(01,28), random.randint(0,9), random.randint(0,9))
+#Cache of datetimes. Contains datetime objects generated randomly every 15 minutes beetween the specificied script start and end dates...
+datetime_cache_list = None
+def getRandomDateTime(dtstart, dtend):
+    global datetime_cache_list
+    #Initialize cache of datetimes...
+    if not datetime_cache_list:
+        #TODO add debug mode and inform when generating this cache...
+        datetime_cache_list = list(rrule(MINUTELY, interval=15, dtstart=dtstart, until=dtend))
+    return random.choice(datetime_cache_list).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def getRandomGeolocationData():
     global location_random_data
     return location_random_data[random.randint(0,20)]
 
-def createRandomStatisticsRecord(child_dict, use_bots=False):
+def createRandomStatisticsRecord(child_dict, stdate, etdate, use_bots=False):
     location = getRandomGeolocationData()
     view_record_tmpl = "{"
     view_record_tmpl += "\"ip\": \"%s\", \"referrer\": \"%s\", \"dns\": \"%s\", \"userAgent\": \"%s\", \"isBot\": false, \"time\": \"%s\" , \"statistics_type\": \"view\", \"continent\": \"%s\", \"countryCode\": \"%s\", \"city\": \"%s\""
@@ -472,7 +509,7 @@ def createRandomStatisticsRecord(child_dict, use_bots=False):
         
 
     view_record_tmpl += "}" 
-    return view_record_tmpl % (getRandomIPv4(), getRandomURL(), getRandomDomain(), getRandomUserAgent(use_bots), getRandomDateTime(), location[0], location[1], location[2])
+    return view_record_tmpl % (getRandomIPv4(), getRandomURL(), getRandomDomain(), getRandomUserAgent(use_bots), getRandomDateTime(stdate, etdate), location[0], location[1], location[2])
 
 
 #<==== END AUX =======>
@@ -484,7 +521,7 @@ def main(argv):
     # here, if a dependency is not met, a DistributionNotFound or VersionConflict exception is thrown. 
     try:
         pkg_resources.require(dependencies)
-    except DistributionNotFound as e:
+    except (DistributionNotFound, VersionConflict) as e:
         info(str(e))
         exitError("A required dependency is not installed! Run a 'pip install -r requirements.txt' to solve this.") 
     parseParams(argv) 
