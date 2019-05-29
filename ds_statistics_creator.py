@@ -303,8 +303,6 @@ def parseParams(argv):
            except ValueError:
                exitError("Value '%s' is invalid. Please correct it..." % arg)
        elif opt in ("-d", "--database-info"):
-           #TODO move this parse at the end, only prompt for db data if all other parameters are ok...
-           promptForDBInfo()
            children_data_source = PG_SOURCE
        elif opt in ("-b", "--include-bots"):
            include_bots = True
@@ -321,11 +319,13 @@ def parseParams(argv):
         sys.exit(2)
     #check if start date and end date are ok
     dtnow = datetime.now()
-    if (start_datetime >= end_datetime):
-        exitError("Starting date must be smaller than ending date [starting='%s', ending='%s']." % (start_datetime, end_datetime))
-    elif (start_datetime > dtnow or end_datetime > dtnow):
+    if (start_datetime > dtnow or end_datetime > dtnow):
         exitError("Starting or ending date must not be bigger than now [starting='%s', ending='%s']." % (start_datetime, end_datetime))
-
+    elif (start_datetime >= end_datetime):
+        exitError("Starting date must be smaller than ending date [starting='%s', ending='%s']." % (start_datetime, end_datetime))
+    #Prompt for database data connection if required.
+    if (children_data_source == PG_SOURCE):
+        promptForDBInfo()
 
 #<===== AUX =========>
 def exitError(message):
