@@ -403,7 +403,7 @@ def createDBConnection():
     if connection is None:
         info("Creating database connection at %s@%s:%s..."%(database_connection_data["host"], database_connection_data["port"], database_connection_data["database"]))
         try:
-            connection = psycopg2.connect(host=database_connection_data["host"], port=database_connection_data["port"], database=database_connection_data["database"], user=database_connection_data["username"], password=database_connection_data)
+            connection = psycopg2.connect(host=database_connection_data["host"], port=database_connection_data["port"], database=database_connection_data["database"], user=database_connection_data["username"], password=database_connection_data["password"])
         except:
             exitError("Cannot connect to PG database. Please correct the connection parameters...")
     info("Connection established successfully.")
