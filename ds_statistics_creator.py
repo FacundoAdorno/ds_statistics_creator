@@ -29,6 +29,9 @@ include_bots = False
 bots_count = 0
 end_datetime = datetime.now()
 start_datetime= end_datetime + relativedelta(years=-5)
+#TODO replace this poor cache mechanism with some library like 'cachetools'...
+## A poor cache object
+cache = {}
 #Packages required for this script
 dependencies = ['psycopg2>=2.8.2', 'progressbar>=2.5', 'python-dateutil>=2.8.0']
 #DB PostgreSQL connection data
@@ -456,6 +459,26 @@ def merge_two_dicts(x, y):
 def createProgressBar(max_size):
     return  progressbar.ProgressBar(maxval=max_size, term_width=100,  widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
 
+def getFromCache(key=None):
+    """ Returns an element from poor cache object. None if not exists key..."""
+    global cache
+    if(key != None and (key in cache)):
+        return cache[key]
+    else:
+        return None
+
+def doCache(key=None,value=None):
+    """Cache an object using as key the key specified."""
+    global cache
+    if(key != None and value != None):
+        cache[key]=value
+
+def decache(key=None):
+    """Throw out the specified element form the cache."""
+    global cache
+    if(key != None and (key in cache)):
+        del cache[key]
+
 #<========= RANDOM DATA HELPERS ===============>
 def getRandomIPv4():
     return socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))
@@ -478,14 +501,13 @@ def getRandomUserAgent(use_bots=False):
     else:
         return user_agent_random_list[random.randint(0,14)]
 
-#Cache of datetimes. Contains datetime objects generated randomly every 15 minutes beetween the specificied script start and end dates...
-datetime_cache_list = None
 def getRandomDateTime(dtstart, dtend):
     global datetime_cache_list
-    #Initialize cache of datetimes...
-    if not datetime_cache_list:
+    #Cache of datetimes...
+    if not getFromCache('datetime_cache'):
         #TODO add debug mode and inform when generating this cache...
-        datetime_cache_list = list(rrule(MINUTELY, interval=15, dtstart=dtstart, until=dtend))
+         doCache( 'datetime_cache', list(rrule(MINUTELY, interval=15, dtstart=dtstart, until=dtend)) ) 
+    datetime_cache_list = getFromCache('datetime_cache')
     return random.choice(datetime_cache_list).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def getRandomGeolocationData():
