@@ -379,11 +379,6 @@ def confirmProcess():
     if not(confirm == "y" or confirm == "Y"):
         info("Exiting by user demand...")
         sys.exit()
-    confirm2 = raw_input("[QUESTION] Last confirmation required: you are about to create and post %i fake records to %s solr server. This is correct?... [y/n]" % 
-    (count_to_process, getStatisticsURL().upper()))
-    if not(confirm2 == "y" or confirm2 == "Y"):
-        info("Exiting by user demand...")
-        sys.exit()
 
 def promptForDBInfo():
     global database_connection_data
