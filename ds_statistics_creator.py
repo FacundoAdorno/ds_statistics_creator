@@ -9,6 +9,7 @@ from datetime import datetime
 from dateutil.rrule import rrule, MINUTELY
 from dateutil.relativedelta import *
 from dateutil.parser import *
+from cachetools import cached, LFUCache
 
 page_size = 2500
 solr_server = ""
@@ -29,11 +30,10 @@ include_bots = False
 bots_count = 0
 end_datetime = datetime.now()
 start_datetime= end_datetime + relativedelta(years=-5)
-#TODO replace this poor cache mechanism with some library like 'cachetools'...
-## A poor cache object
-cache = {}
+#cachetools cache
+cache = LFUCache(maxsize=30)
 #Packages required for this script
-dependencies = ['psycopg2>=2.8.2', 'progressbar>=2.5', 'python-dateutil>=2.8.0']
+dependencies = ['psycopg2>=2.8.2', 'progressbar>=2.5', 'python-dateutil>=2.8.0', 'cachetools']
 #DB PostgreSQL connection data
 database_connection_data = {"host": "localhost", "port": "5432", "username": "", "password":"", "database": ""}
 connection = None
@@ -454,26 +454,6 @@ def merge_two_dicts(x, y):
 def createProgressBar(max_size):
     return  progressbar.ProgressBar(maxval=max_size, term_width=100,  widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
 
-def getFromCache(key=None):
-    """ Returns an element from poor cache object. None if not exists key..."""
-    global cache
-    if(key != None and (key in cache)):
-        return cache[key]
-    else:
-        return None
-
-def doCache(key=None,value=None):
-    """Cache an object using as key the key specified."""
-    global cache
-    if(key != None and value != None):
-        cache[key]=value
-
-def decache(key=None):
-    """Throw out the specified element form the cache."""
-    global cache
-    if(key != None and (key in cache)):
-        del cache[key]
-
 #<========= RANDOM DATA HELPERS ===============>
 def getRandomIPv4():
     return socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))
@@ -497,13 +477,15 @@ def getRandomUserAgent(use_bots=False):
         return user_agent_random_list[random.randint(0,14)]
 
 def getRandomDateTime(dtstart, dtend):
-    global datetime_cache_list
-    #Cache of datetimes...
-    if not getFromCache('datetime_cache'):
-        #TODO add debug mode and inform when generating this cache...
-         doCache( 'datetime_cache', list(rrule(MINUTELY, interval=15, dtstart=dtstart, until=dtend)) ) 
-    datetime_cache_list = getFromCache('datetime_cache')
-    return random.choice(datetime_cache_list).strftime("%Y-%m-%dT%H:%M:%SZ")
+    datetime_list = getDatesList(dtstart, dtend)
+    return random.choice(datetime_list).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+@cached(cache)
+def getDatesList(dtstart, dtend):
+    """
+    Return a list of random datetimes for specified start-date and end-date...
+    """
+    return list(rrule(MINUTELY, interval=15, dtstart=dtstart, until=dtend))
 
 def getRandomGeolocationData():
     global location_random_data
