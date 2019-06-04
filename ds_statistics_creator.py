@@ -460,11 +460,11 @@ def getRandomIPv4():
 
 def getRandomURL():
     global url_random_list
-    return url_random_list[random.randint(0,49)]
+    return random.choice(url_random_list)
 
 def getRandomDomain():
     global domain_random_list
-    return domain_random_list[random.randint(0,49)]
+    return random.choice(domain_random_list)
 
 def getRandomUserAgent(use_bots=False):
     global user_agent_random_list, bot_user_agent_random_list, bots_count
@@ -472,9 +472,9 @@ def getRandomUserAgent(use_bots=False):
     bot_decision = use_bots and (random.randint(0,10) % 2)
     if bot_decision:
         bots_count += 1
-        return bot_user_agent_random_list[random.randint(0,19)]
+        return random.choice(bot_user_agent_random_list)
     else:
-        return user_agent_random_list[random.randint(0,14)]
+        return random.choice(user_agent_random_list)
 
 def getRandomDateTime(dtstart, dtend):
     datetime_list = getDatesList(dtstart, dtend)
@@ -489,7 +489,7 @@ def getDatesList(dtstart, dtend):
 
 def getRandomGeolocationData():
     global location_random_data
-    return location_random_data[random.randint(0,20)]
+    return random.choice(location_random_data)
 
 def createRandomStatisticsRecord(child_dict, stdate, etdate, use_bots=False):
     location = getRandomGeolocationData()
