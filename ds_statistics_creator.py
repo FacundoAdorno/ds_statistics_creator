@@ -485,6 +485,9 @@ def getDatesList(dtstart, dtend):
     """
     Return a list of random datetimes for specified start-date and end-date...
     """
+    #if difference beetween dates is bigger than 15 years, warning about it...
+    if ((dtend - dtstart).days > 15 * 365):
+        warn("Calculating random dates for a period bigger than 15 years. This may take couple of seconds...")
     return list(rrule(MINUTELY, interval=15, dtstart=dtstart, until=dtend))
 
 def getRandomGeolocationData():
