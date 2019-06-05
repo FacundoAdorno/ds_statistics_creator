@@ -4,7 +4,7 @@
 
 import contextlib,urllib,urllib2,json,sys,progressbar,getopt,random,socket,struct, time, getpass, pkg_resources, psycopg2, os.path
 from pkg_resources import DistributionNotFound, VersionConflict
-from test_data import *
+from aux_data import *
 from datetime import datetime
 from dateutil.rrule import rrule, MINUTELY
 from dateutil.relativedelta import *
