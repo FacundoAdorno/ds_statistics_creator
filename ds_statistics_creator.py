@@ -4,7 +4,8 @@
 
 import contextlib,urllib,urllib2,json,sys,progressbar,getopt,random,socket,struct, time, getpass, pkg_resources, psycopg2, os.path
 from pkg_resources import DistributionNotFound, VersionConflict
-from aux_data import *
+from aux.aux_data import *
+from aux.constants import *
 from datetime import datetime
 from dateutil.rrule import rrule, MINUTELY
 from dateutil.relativedelta import *
@@ -19,13 +20,13 @@ comm_handle = ""
 comm_uid = ""
 base_url = "{0}"
 count_to_process = 10000
+count_per_object = 0
+count_mode = TOTAL_COUNT
 totalDocs = 0
 dry_run_mode = False
 dry_run_tmpf = None
 dry_run_tmpf_location = "/tmp/solr_records_dry_run_mode.json"
-SOLR_SOURCE = "SOLR"
-PG_SOURCE = "POSTGRESQL"
-children_data_source = "SOLR" #defaults to solr
+children_data_source = SOLR_SOURCE #defaults to solr
 include_bots = False
 bots_count = 0
 end_datetime = datetime.now()
@@ -38,31 +39,26 @@ dependencies = ['psycopg2>=2.8.2', 'progressbar>=2.5', 'python-dateutil>=2.8.0',
 database_connection_data = {"host": "localhost", "port": "5432", "username": "", "password":"", "database": ""}
 connection = None
 
-"""
-Process all childs (Sub-communities, Collections, and Items) for specified Community, and create
-test statistics record. Then POST those records to Solr Server at the statistics core specified 
-(defaults to 'statistics').
-
-Until now, only "view" statistics_type records are created.
-"""
 def process():
+    """Process all childs (Sub-communities, Collections, and Items) for specified Community, and create
+    test statistics record. Then POST those records to Solr Server at the statistics core specified 
+    (defaults to 'statistics').
+
+    Until now, only "view" statistics_type records are created.
+    """
     global comm_handle, comm_uid, include_bots, count_to_process, bots_count, start_datetime, end_datetime
     totalDocs = 0
     start_time = time.time()
-    info("Getting childs of %s community..." % comm_handle)
-    #Get info of child (community, collection, item, NO bitstream)
-    if children_data_source == SOLR_SOURCE:
-        children_data = getChildrenFromSolr()
-    else: # source == PG_SOURCE
-        children_data = getChildrenFromDB()
+    
+    #hook for pre-processing
+    pre_process(start_time)
+    children_data = getChildren(children_data_source)
     ##Add the parent community object in order to create statistics records for it too...
     children_data.append( {"search.resourceid": comm_uid, "search.resourcetype": 4 })
 
     #Starting processing with pagination
     bar = createProgressBar(count_to_process) 
     start_from = 0
-    #hook for pre-processing
-    pre_process(start_time)
     info("Generating records between dates '%s' and '%s'." % (start_datetime.strftime("%Y-%m-%d %H:%M:%S"), end_datetime.strftime("%Y-%m-%d %H:%M:%S")))
     info("POSTing %i records to Solr Server at %s..." % (count_to_process, getStatisticsURL()))
     bar.start()
@@ -92,10 +88,20 @@ def process():
     #hook for post-processing
     post_process(start_time)
 
-"""
-Obtain children of the Community specified at invocation from Solr 'search' core. Sub-communities and bitstreams cannot be obtained using this method.
-"""
+@cached(cache)
+def getChildren(ch_data_source=PG_SOURCE):
+    """Get children from specified source. Sources can be either PG_SOURCE or SORL_SOURCE"""      
+    info("Getting childs of %s community..." % comm_handle)
+    #Get info of child (community, collection, item, NO bitstream)
+    if ch_data_source == SOLR_SOURCE:
+        return getChildrenFromSolr()
+    else: # source == PG_SOURCE
+        return getChildrenFromDB()
+
 def getChildrenFromSolr():
+    """Obtain children of the Community specified at invocation from Solr 'search' core. 
+    Sub-communities and bitstreams cannot be obtained using this method.
+    """
     global page_size,comm_handle,comm_uid
     children_list = []
     comm_uid_q_params = {"q" : "handle:({0})".format(comm_handle), "wt":"json", "indent":"true"}
@@ -143,10 +149,10 @@ def getChildrenFromSolr():
 
     return children_list
 
-"""
-Obtain children of the Community specified at invocation from PostgreSQL database. Through this method can obtain all children from a Community (items, bitstreams and collections).
-"""
 def getChildrenFromDB():
+    """Obtain children of the Community specified at invocation from PostgreSQL database. 
+    Through this method can obtain all children from a Community (items, bitstreams and collections).
+    """
     global comm_handle, comm_uid
     pg_cur = connection.cursor()
     
@@ -222,18 +228,18 @@ def getChildrenFromDB():
     #Return all children lists concatenated...
     return comm_children_list + coll_children_list + item_children_list + bs_original_children_list
 
-"""
-Things to do before main process...
-"""
 def pre_process(start_time):
-    global dry_run_mode
+    """Things to do before main process..."""
+    global dry_run_mode, count_to_process
     if dry_run_mode:
         writeDryRunMode("[")
+    if (count_mode == PER_OBJECT_COUNT):
+        #Calculate total count of registries to create as the multiple of count_per_object value and "the count of childs plus one". 
+        #"Plus one" because we want to create records for the target comunity too...
+        count_to_process = count_per_object * (len(getChildren(children_data_source)) + 1)
 
-"""
-Things to do after main process...
-"""
 def post_process(start_time):
+    """Things to do after main process..."""
     global dry_run_mode,dry_run_tmpf_location,include_bots,count_to_process,bots_count
     if dry_run_mode:
         writeDryRunMode("]")
@@ -252,13 +258,16 @@ def getStatisticsURL():
     return solr_server + "/" + statistics_core_name
 
 def parseParams(argv):
-    global solr_server, comm_handle, statistics_core_name, search_core_name, count_to_process,dry_run_tmpf_location, dry_run_mode, dry_run_tmpf, count_to_process, database_info, children_data_source, include_bots, start_datetime, end_datetime
-    
+    global solr_server, comm_handle, statistics_core_name, search_core_name, count_to_process,dry_run_tmpf_location, dry_run_mode, dry_run_tmpf, count_to_process, count_per_object, count_mode, database_info, children_data_source, include_bots, start_datetime, end_datetime
+   
+    #TODO add support for API-REST children data source.
+
     help_text = """[HELP] script -s <solr-server-url>  -i <community-handle> [[-e <search-core>| -d] -t <statistics-core> -c <count> --start <date> --end <date> -b --dry-run] 
       -s, --solr-server: specify the URL to SOLR Server. Don't include the core name, i.e. \'http:localhost:7080/solr\'.
-      -i, --handle: the HANDLE of the community to generate test statistics records.
+      -i, --handle: the HANDLE of the target community to generate test statistics records.
       -t, --statistics-core: specify the name of the statistics core. 'statistics' is the default.
-      -c, --count: specify the total number of statistics records you want to create. Defaults to %i.
+      -c, --count: specify the total number of statistics records you want to create. Mutually exclusive with "--count-per-object" option. Defaults to %i.
+      -p, --count-per-object: specifiy the total number of records created by every child object of the target community. This option is mutually exclusive with "--count" option.
       -b, --include-bots: use this flag if you want to combine both "normal" and "of known bots/crawlers" User Agents in created records.
       --start: specifiy the start datetime for the generation of the statistics records. This date must be lesser than NOW or the --end date parameter.
                 The string format of this parameter could be "year-month-date" or "year-month-date hour:minutes:seconds". I.e. "2019-01-21" or "2019-01-21 12:50:00".
@@ -282,7 +291,8 @@ def parseParams(argv):
   >>INFO<<: This script index testing records for Solr Statistics core in DSpace. By default, it generates testing records within the date lapse of five years until now.
   """ % (count_to_process, dry_run_tmpf_location)
     try:
-        opts, args = getopt.getopt(argv,"hs:i:e:t:c:db",["solr-server=","uid=","search-core=","statistics-core=","count=","database-info","include-bots","dry-run","start=","end="])
+        opts, args = getopt.getopt(argv,"hs:i:e:t:c:p:db",["solr-server=","uid=","search-core=","statistics-core=","count=","database-info","include-bots","dry-run","start=","end=",
+            "count-per-object="])
     except getopt.GetoptError:
        print help_text
        sys.exit(2)
@@ -303,8 +313,15 @@ def parseParams(argv):
        elif opt in ("-c", "--count"):
            try:
                count_to_process = int(arg)
+               count_mode = TOTAL_COUNT
            except ValueError:
                exitError("Value '%s' is invalid. Please correct it..." % arg)
+       elif opt in ("-p", "--count-per-object"):
+           try:
+               count_per_object = int(arg)
+               count_mode = PER_OBJECT_COUNT
+           except ValueError:
+               exitError("Value '%s' is invalid. Please correct it..." % arg) 
        elif opt in ("-d", "--database-info"):
            children_data_source = PG_SOURCE
        elif opt in ("-b", "--include-bots"):
@@ -331,6 +348,7 @@ def parseParams(argv):
         promptForDBInfo()
 
 #<===== AUX =========>
+#TODO migrate all logging functions to the use of 'logging' python module. Then adds a parameter to let specify a desired logging level...
 def exitError(message):
     print "[ERROR] " + message
     sys.exit(2)
@@ -356,10 +374,8 @@ def createTempFile(location="./temp.file"):
     temp_file = open(location, 'w')
     return temp_file
 
-"""
-Write to a temporary file created for dry-run executions...
-"""
 def writeDryRunMode(stringToFile):
+    """Write to a temporary file created for dry-run executions..."""
     global dry_run_tmpf
     if (stringToFile != ""):
         #print >> dry_run_tmpf, stringToFile
@@ -373,9 +389,13 @@ def confirmProcess():
     if dry_run_mode:
         info("Running in DRY-RUN mode...")
         return
-    confirm = raw_input("[QUESTION] Are you sure to continue and create fake statistics records for community \"%s\"?\n\
-\t You are about to create and post %i records to %s solr server. This is not recommended in a PRODUCTION environment as it can make a mess with your real data... [y/n]" % 
-    (comm_handle, count_to_process, getStatisticsURL()))
+    question = "[QUESTION] Are you sure to continue and create fake statistics records for community \"%s\"?" % comm_handle
+    if (count_mode == TOTAL_COUNT):
+        question += "\n\t You are about to create and post %i records at '%s' solr server." % (count_to_process, getStatisticsURL())
+    else: #PER_OBJECT_COUNT mode
+        question += "\n\t You are about to create and post %i records per every object child of target community at '%s' solr server" % (count_per_object, getStatisticsURL())
+    question += " This is not recommended in a PRODUCTION environment as it can make a mess with your real data... [y/n]"
+    confirm = raw_input(question)
     if not(confirm == "y" or confirm == "Y"):
         info("Exiting by user demand...")
         sys.exit()
@@ -430,11 +450,11 @@ def postJsonData(json_data=''):
             exitError("Cannot establish connection with server at %s. Exiting..." % getStatisticsURL())
     else:
         exitError("JSON data is empty...")
-"""
-Connect to the URL specified, it must return a SOLR JSON response object.
-Then parse the result and return an object resulting of parse the JSON response.
-"""
+
 def getJsonResponse(json_url,quiet=False):    
+    """Connect to the URL specified, it must return a SOLR JSON response object.
+    Then parse the result and return an object resulting of parse the JSON response.
+    """
     if not quiet:
         info("Connecting to URL %s" % (json_url))
     try:

@@ -1,0 +1,6 @@
+#Count modes
+TOTAL_COUNT = "TOTAL"
+PER_OBJECT_COUNT = "PER_OBJECT"
+#Children Data Source modes
+SOLR_SOURCE = "SOLR"
+PG_SOURCE = "POSTGRESQL"
