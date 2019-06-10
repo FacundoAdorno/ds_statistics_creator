@@ -277,6 +277,7 @@ def parseParams(argv):
                 By default, the end date is NOW.
       --dry-run: run the command in a SAFE-MODE. No records will be POSTed to Solr server. The records created will be seen
                 in a temporary file at \"%s".
+      -h, --help: show this help menu.
     
   **CHILDREN DATA SOURCE** (Solr or PostgreSQL):
   ====================================
@@ -292,12 +293,12 @@ def parseParams(argv):
   """ % (count_to_process, dry_run_tmpf_location)
     try:
         opts, args = getopt.getopt(argv,"hs:i:e:t:c:p:db",["solr-server=","uid=","search-core=","statistics-core=","count=","database-info","include-bots","dry-run","start=","end=",
-            "count-per-object="])
+            "count-per-object=","help"])
     except getopt.GetoptError:
        print help_text
        sys.exit(2)
     for opt, arg in opts:
-       if opt == '-h':
+       if opt in ("-h", "--help"):
           print help_text
           sys.exit()
        elif opt in ("-s", "--solr-server"):
@@ -514,6 +515,7 @@ def getRandomGeolocationData():
     global location_random_data
     return random.choice(location_random_data)
 
+#TODO: add support for the creation of search records.
 def createRandomStatisticsRecord(child_dict, stdate, etdate, use_bots=False):
     location = getRandomGeolocationData()
     view_record_tmpl = "{"
