@@ -1,4 +1,15 @@
 # ds_statistics_creator
+
+* [What does this script?](#what-does-this-script)
+* [When/Where to use this script?](#whenwhere-to-use-this-script)
+* [How to use this script?](#how-to-use-this-script)
+* [How to modify fake data?](#how-to-modify-fake-data)
+* [Possible children data sources](#possible-children-data-sources)
+* [Install script dependencies](#script-dependencies)
+* [EXAMPLES](#examples)
+
+## Introduction
+
 Python script for the creation of fake statistics records, specially recommended when testing some instance of a DSpace repository and no statistics data is available.
 
 ```bash
@@ -18,6 +29,7 @@ $ python ds_statistics_creator.py -h
                 By default, the end date is NOW.
       --dry-run: run the command in a SAFE-MODE. No records will be POSTed to Solr server. The records created will be seen
                 in a temporary file at "/tmp/solr_records_dry_run_mode.json".
+      -h, --help: show this help menu.
     
   **CHILDREN DATA SOURCE** (Solr or PostgreSQL):
   ====================================
@@ -84,6 +96,30 @@ You can specify differents data sources from where obtain children information o
   * This option needs to create temporary tables for construct the (potentially) deep tree of elements that conforms the repository structure.
 
 The default data source is Solr, but is highly recommended to use PostgreSQL database source, as it does not lacks of information when retrieve data for community children.
+
+## Script dependencies
+
+Before running this script, you must install some Python package dependencies.
+
+### Use 'virtualenv'
+
+[virtualenv](https://pypi.org/project/virtualenv/) allows you to install dependencies from a Python project without affecting the rest of the project on your system. Its create an isolated environment that lets you install packages without any special permission. To install it in your system, you can do it using [pip](https://pip.pypa.io/en/stable/) tool:
+```bash
+sudo pip install virtualenv
+## Initialize virtual environment
+cd ds_statistics_creator_dir
+virtualenv .
+```
+This is an OPTIONAL step, but is recommended way for do it.
+
+### Install dependencies
+You must run the following in order to install the packages required by this script:
+```bash
+cd ds_statistics_creator_dir
+##activate virtual environment
+source bin/activate
+pip install -r requirements.txt
+```
 
 ## EXAMPLES
 
