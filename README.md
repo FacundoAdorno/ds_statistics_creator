@@ -10,10 +10,10 @@
 
 ## Introduction
 
-Python script for the creation of fake statistics records, specially recommended when testing some instance of a DSpace repository and no statistics data is available.
+This is a Python script for the creation of fake statistics records, specially recommended when testing some instance of a DSpace repository and no statistics data is available.
 
 ```bash
-$ python ds_statistics_creator.py -h
+$ python ds_statistics_creator.py --help
 [HELP] script -s <solr-server-url>  -i <community-handle> [[-e <search-core>| -d] -t <statistics-core> -c <count> --start <date> --end <date> -b --dry-run] 
       -s, --solr-server: specify the URL to SOLR Server. Don't include the core name, i.e. 'http:localhost:7080/solr'.
       -i, --handle: the HANDLE of the target community to generate test statistics records.
@@ -45,14 +45,14 @@ $ python ds_statistics_creator.py -h
 ```
 
 ## What does this script?
-This script allows you to create and post an arbitrarious number of records (*millons* if required) of "statistical" data for [SOLR-Statistics module](https://wiki.duraspace.org/display/DSDOC6x/SOLR+Statistics) in DSpace, that is, it allows populate with fake and random data the 'statistics' Solr core of a DSpace instance. The Solr server must be reachable via HTTP by the machine executing this script.
+This script allows you to create and post an arbitrarious number of records (*millions* if required) of "statistical" data for [SOLR-Statistics module](https://wiki.duraspace.org/display/DSDOC6x/SOLR+Statistics) in DSpace, that is, it allows populate with fake and random data the 'statistics' Solr core of a DSpace instance. The Solr server must be reachable via HTTP by the machine executing this script.
 
 The records created by this script are vinculated with the "target community", that is the community specified with the `-i |--handle` parameter. These records are related to this community and its children (communities, collections, items and bitstreams).
 
 The format of this data is described at [DSpace documentation](https://wiki.duraspace.org/display/DSDOC6x/SOLR+Statistics#SOLRStatistics-Whatisexactlybeinglogged?), but basically exists four types of statistics records in DSpace: *views, downloads, searches, and workflow usage*. Until now, this scripts only create "view" and "download" statistics records.
 
 ## When/Where to use this script?
-Is highly encouraged to use this script only for test purposes. You should use a testing instance of Solr core for DSpace as the endpoint where post fake data created by this script, since this script can post millons of records when you confirm. **The actions of this scripts cannot be undone easily, so use this script under your own risk.**
+Is highly encouraged to use this script only for test purposes. You should use a testing instance of Solr core for DSpace as the endpoint where post fake data created by this script, since this script can post millions of records when you confirm. **The actions of this scripts cannot be undone easily, so use this script under your own risk.**
 
 > For more security, before running this script, you can check the output data generated if you append the `--dry-run` flag when you execute it. 
 
@@ -65,7 +65,7 @@ By default, it push all created records to "solr/statistics" core in Solr. Howev
 
 Then you can specify others optional parameters, run with `--help` flag.
 
-### Safe run mode
+### Run Safe mode
 For test the output result of script after appling this in a test environment, you can run it with the `--dry-run` flag. This will create a temporal file containing all fake records that would have been posted to Solr server.
 
 ### Optimize Solr after every execution
@@ -103,7 +103,7 @@ Before running this script, you must install some Python package dependencies.
 
 ### Use 'virtualenv'
 
-[virtualenv](https://pypi.org/project/virtualenv/) allows you to install dependencies from a Python project without affecting the rest of the project on your system. Its create an isolated environment that lets you install packages without any special permission. To install it in your system, you can do it using [pip](https://pip.pypa.io/en/stable/) tool:
+[virtualenv](https://pypi.org/project/virtualenv/) allows you to install dependencies from a Python project without affecting the rest of the Python projects on your system. Its create an isolated environment that lets you install packages without any special permission. To install *virtualven* in your system, you can use [pip](https://pip.pypa.io/en/stable/) tool:
 ```bash
 sudo pip install virtualenv
 ## Initialize virtual environment
@@ -113,7 +113,7 @@ virtualenv .
 This is an OPTIONAL step, but is recommended way for do it.
 
 ### Install dependencies
-You must run the following in order to install the packages required by this script:
+You must run the following commands in order to install the packages required by this script:
 ```bash
 cd ds_statistics_creator_dir
 ##activate virtual environment
