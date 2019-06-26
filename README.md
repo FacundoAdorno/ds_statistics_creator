@@ -123,5 +123,32 @@ pip install -r requirements.txt
 
 ## EXAMPLES
 
--TODO
+In these examples, the target community has the fictional handle "123456789/12018".
+
+#### Simplest usage - only with required parameters
+Create 10.000 (default) statistics records and post them to solr server at http://localhost:8080, using `search` Solr core (default) as a children data source.  
+```bash
+python ds_statistics_creator.py -s localhost:8080/solr -i "123456789/12018"
+```
+   
+#### Run a test, dont post the created records
+This is possible using the `--dry-run` parameter. By default, the create records can be seen in /tmp/solr_records_dry_run_mode.json file.
+```bash
+python ds_statistics_creator.py -s localhost:8080/solr -i "123456789/12018" --dry-run
+```
+
+#### Create a total of 5 millions records, using PostgreSQL database as a children source
+You will be prompted for database connection parameters.
+```bash
+python ds_statistics_creator.py -s localhost:8080/solr -i "123456789/12018" -c 5000000 -d
+```
+
+#### Create records only for the year 2018
+
+```bash
+python ds_statistics_creator.py -s localhost:8080/solr -i "123456789/12018" --start "2018-01-01 00:00:00" --end "2018-12-31 23:59:59"
+```
+
+
+-TODO: write more examples
 
