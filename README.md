@@ -123,7 +123,7 @@ pip install -r requirements.txt
 
 ## EXAMPLES
 
-In these examples, the target community has the fictional handle "123456789/12018".
+In these examples, the target community has the fictional handle "123456789/12018". You must activate previously the virtual environment using `source bin/activate` command at the script root directory.
 
 #### Simplest usage - only with required parameters
 Create 10.000 (default) statistics records and post them to solr server at http://localhost:8080, using `search` Solr core (default) as a children data source.  
