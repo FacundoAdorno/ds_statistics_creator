@@ -156,7 +156,7 @@ python ds_statistics_creator.py -s localhost:8080/solr -i "123456789/12018" --st
 ```
 
 #### Create record in a mixed mode, for bots and non-bots useragents
-There are available public lists of known bots/spiders (i.e. https://www.robotstxt.org/db.html). With the --include-bots flag you can tell the script to  create records vinculated with some of this known bots.
+There are available public lists of known bots/spiders (i.e. https://www.robotstxt.org/db.html). With the `--include-bots` flag you can tell the script to  create records vinculated with some of this known bots.
 
 ```bash
 python ds_statistics_creator.py -s localhost:8080/solr -i "123456789/12018" --include-bots
@@ -164,7 +164,7 @@ python ds_statistics_creator.py -s localhost:8080/solr -i "123456789/12018" --in
 
 
 #### Create 8900 records (or any other amount) for every child of target community
-For this, you can use the `-c` or `--count-per-object` parameter. This is mutually exclusive with the `--count` parameter.
+For this, you can use the `-p` or `--count-per-object` parameter. This is mutually exclusive with the `--count` parameter.
 ```bash
 python ds_statistics_creator.py -s localhost:8080/solr -i "123456789/12018" -p 8900
 ```
